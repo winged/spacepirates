@@ -8,9 +8,12 @@
     var p = Ship.prototype = new createjs.Container();
 
     // public properties:
-    Ship.TOGGLE = 60;
-    Ship.MAX_THRUST = 2;
-    Ship.MAX_VELOCITY = 5;
+    Ship.GRAVITY             = 50;
+    Ship.REVIVAL_TIME        = 4000;
+    Ship.MAX_THRUST          = 4;
+    Ship.FLAME_THRUST_FACTOR = 0.5;
+    Ship.MAX_VELOCITY        = 20;
+    Ship.ROTATION_SPEED      = 10;
 
     // public properties:
     p.shipFlame;
@@ -23,9 +26,6 @@
 
     p.vX;
     p.vY;
-
-    p.bounds;
-    p.hit;
 
     // constructor:
     p.Container_initialize = p.initialize;	//unique to avoid overiding base class
@@ -118,15 +118,28 @@
 
         g = this.trajectory.graphics
         g.clear();
-        g.beginStroke("#FFFFFF");
+        g.beginStroke(createjs.Graphics.getRGB(0,255,255, 1));
         g.moveTo(0,0)
         var preview = this.preview()
-        for (var x = 0; x < 100; x++) {
+
+        var maxPreview = 100
+
+        for (var x = 1; x < maxPreview+10; x++) {
+            preview.rotation = 0
+
             preview.tick()
             if (preview.isCrashed()) {
+                // TODO: find closest point on planet, then draw
+                // preview crash there to avoid flickering
                 break;
             }
+
             g.lineTo(preview.x - this.x, preview.y - this.y)
+            g.endStroke()
+            var newalpha = (maxPreview - x) / maxPreview
+            g.moveTo(preview.x - this.x, preview.y - this.y)
+            g.beginStroke(createjs.Graphics.getRGB(0,255,255, newalpha));
+            //g.lineTo(preview.x, preview.y)
         }
 
 
@@ -134,26 +147,29 @@
         this.hud.textFuel.text  = 'Fuel: '  + Math.round(this.fuel)
         this.hud.textGrav.text  = 'Gravity: ' + Math.round(this.vectorLength(this.gravity())*10)
 
-        //furthest visual element
-        this.bounds = 10;
-        this.hit = this.bounds;
     }
 
     p.preview = function() {
+
         return {
-            x: this.x,
-            y: this.y,
-            vX: this.vX,
-            vY: this.vY,
-            planets: this.planets,
-            gravity: this.gravity,
-            attractionTo: this.attractionTo,
-            distanceTo: this.distanceTo,
-            vectorLength: this.vectorLength,
-            makeShape: function(){},
-            shipFlame: {},
-            tick: this.tick,
-            isCrashed: this.isCrashed
+            x                : this.x,
+            y                : this.y,
+            vX               : this.vX,
+            vY               : this.vY,
+            planets          : this.planets,
+            gravity          : this.gravity,
+            attractionTo     : this.attractionTo,
+            distanceTo       : this.distanceTo,
+            vectorLength     : this.vectorLength,
+            makeShape        : function(){},
+            makeCrashedShape : this.makeCrashedShape,
+            graphics         : this.trajectory.graphics,
+            shipFlame        : new createjs.Shape(),
+            shipBody         : new createjs.Shape(),
+            trajectory       : new createjs.Shape(),
+            tick             : this.tick,
+            isCrashed        : this.isCrashed,
+            isPreview        : true
         }
     }
 
@@ -203,9 +219,27 @@
         var deltaY = planet.y - this.y
         var dist = this.distanceTo(planet)
         return {
-            x:  80 * deltaX / Math.pow(Math.abs(dist)+0.1, 2),
-            y:  80 * deltaY / Math.pow(Math.abs(dist)+0.1, 2)
+            x:  Ship.GRAVITY * deltaX / Math.pow(Math.abs(dist)+0.1, 2),
+            y:  Ship.GRAVITY * deltaY / Math.pow(Math.abs(dist)+0.1, 2)
         }
+    }
+
+    p.makeCrashedShape = function() {
+        var fadeTime = 500
+        var timeDead = (new Date()) - this.timeDied
+        var fade = Math.max(0, fadeTime - timeDead) / fadeTime
+
+        var g = this.shipBody.graphics
+        g.clear()
+        g.beginStroke(createjs.Graphics.getRGB(255,255,255, fade))
+        g.beginFill(createjs.Graphics.getRGB(255,0xbc,0x23, fade))
+        g.drawPolyStar(0, 0, this.fuel / 30, 8, 0.5, 0)
+
+        g = this.trajectory.graphics
+        g.clear()
+
+        g = this.shipFlame.graphics
+        g.clear()
     }
 
     p.tick = function (event) {
@@ -214,6 +248,25 @@
         var gravity = this.gravity()
         this.vX += gravity.x
         this.vY += gravity.y
+
+        if (this.isCrashed() && !this.isPreview) {
+            if (!this.timeDied) {
+                this.timeDied = new Date()
+            }
+            else {
+                if (new Date() - this.timeDied > Ship.REVIVAL_TIME) {
+                    this.timeDied = undefined
+                    this.vX = 0
+                    this.vY = 20
+                    this.x  = 500
+                    this.y  = 300
+                }
+            }
+            this.vX = 0
+            this.vY = 0
+            this.makeCrashedShape()
+            return
+        }
 
         this.makeShape()
 
@@ -230,20 +283,14 @@
             this.timeout++;
             this.shipFlame.alpha = 1;
 
-            this.fuel -= this.thrust * .2
+            this.fuel -= this.thrust
 
-            if (this.timeout > Ship.TOGGLE) {
-                this.timeout = 0;
-                if (this.shipFlame.scaleX == 1) {
-                    this.shipFlame.scaleX = 0.5;
-                    this.shipFlame.scaleY = 0.5;
-                } else {
-                    this.shipFlame.scaleX = 1;
-                    this.shipFlame.scaleY = 1;
-                }
-            }
+            this.shipFlame.scaleX = this.thrust * Ship.FLAME_THRUST_FACTOR
+            this.shipFlame.scaleY = this.thrust * Ship.FLAME_THRUST_FACTOR
+
             this.thrust -= 0.5;
-        } else {
+        }
+        else {
             this.shipFlame.alpha = 0;
             this.thrust = 0;
         }
@@ -263,6 +310,14 @@
         //cap max speeds
         this.vX = Math.min(Ship.MAX_VELOCITY, Math.max(-Ship.MAX_VELOCITY, this.vX));
         this.vY = Math.min(Ship.MAX_VELOCITY, Math.max(-Ship.MAX_VELOCITY, this.vY));
+    }
+
+    p.rotate = function rotate(dir) {
+        switch(dir) {
+            case 'left':  this.rotation -= Ship.ROTATION_SPEED; break;
+            case 'right': this.rotation += Ship.ROTATION_SPEED; break;
+        }
+        this.trajectory.rotation = - this.rotation
     }
 
     window.Ship = Ship;

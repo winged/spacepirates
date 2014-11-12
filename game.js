@@ -24,6 +24,13 @@
 
     createjs.Ticker.addEventListener("tick", stage);
     createjs.Ticker.addEventListener("tick", function() { ship.tick() });
+
+    var interaction = new Interaction()
+
+    interaction.up(function(down){ if(down) ship.accelerate() })
+    interaction.left(function(down){ if(down) ship.rotate('left') })
+    interaction.right(function(down){ if(down) ship.rotate('right') })
+
 }(window));
 
 /* vim: set sw=4 ts=4 et nocindent smartindent : */
