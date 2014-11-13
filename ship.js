@@ -70,7 +70,7 @@
         this.y = startY
         //this.rotation = 90
 
-        this.fuel = 1000;
+        this.fuel = 100;
     }
 
     // public methods:
@@ -298,6 +298,10 @@
 
     p.accelerate = function () {
         //increase push ammount for acceleration
+        if (this.fuel <= 0) {
+            this.fuel = 0
+            return
+        }
         this.thrust += this.thrust + 0.6;
         if (this.thrust >= Ship.MAX_THRUST) {
             this.thrust = Ship.MAX_THRUST;
