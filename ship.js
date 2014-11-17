@@ -28,7 +28,7 @@
     p.vY = undefined;
 
     // constructor:
-    p.Container_initialize = p.initialize;	//unique to avoid overiding base class
+    p.Container_initialize = p.initialize; //unique to avoid overiding base class
 
     p.initialize = function (worlds, myWorld) {
         this.Container_initialize();
@@ -202,6 +202,16 @@
     p.isWithinBoundingBox = function() {
         // first, check crash into planets themelves
         // at the same time, check crash into bounding ellipsis
+
+        // for now, just ckeck the BOX, not the ellipse
+        if (this.x < 0) { this.x = -0.1; return false}
+        if (this.y < 0) { this.y = -0.1; return false}
+        if (this.x > 1200) { this.x = 1200.1;  return false }
+        if (this.y > 800)  { this.y =  800.1;  return false }
+
+        return true
+
+
         var sumDistance    = 0
         var planetDistance = 0
         var previousPlanet = null;
