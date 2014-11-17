@@ -17,12 +17,20 @@
         worldRed,
     ]
 
-
-    var background = new Background(width, height, worlds)
+    var background = new Background(width, height)
     stage.addChild(background)
 
     stage.addChild(worldRed)
     stage.addChild(worldBlue)
+
+    worldRed .scoreboard.x =  100
+    worldRed .scoreboard.y =  740
+    worldBlue.scoreboard.x = 1100
+    worldBlue.scoreboard.y =  740
+
+    stage.addChild(worldRed .scoreboard)
+    stage.addChild(worldBlue.scoreboard)
+
 
     var ship = new Ship(worlds, worldRed)
     stage.addChild(ship)
@@ -34,8 +42,8 @@
 
     var interaction = new Interaction()
 
-    interaction.up(function(down){ if(down) ship.accelerate() })
-    interaction.left(function(down){ if(down) ship.rotate('left') })
+    interaction.up   (function(down){ if(down) ship.accelerate() })
+    interaction.left (function(down){ if(down) ship.rotate('left') })
     interaction.right(function(down){ if(down) ship.rotate('right') })
 
 }(window));

@@ -8,21 +8,27 @@
     var p = Ship.prototype = new createjs.Container();
 
     // public properties:
-    Ship.GRAVITY             = 50;
-    Ship.REVIVAL_TIME        = 4000;
-    Ship.MAX_THRUST          = 4;
-    Ship.FLAME_THRUST_FACTOR = 0.5;
-    Ship.MAX_VELOCITY        = 20;
-    Ship.ROTATION_SPEED      = 10;
+    Ship.GRAVITY             = 50
+    Ship.REVIVAL_TIME        = 4000
+    Ship.MAX_THRUST          = 4
+    Ship.FLAME_THRUST_FACTOR = 0.5
+    Ship.MAX_VELOCITY        = 20
+    Ship.ROTATION_SPEED      = 15
+    Ship.MAX_FUEL            = 100
+    Ship.REFUEL_SPEED        = 0.5
+
+    Ship.MAX_CARGO           = 100
+    Ship.LOADING_SPEED       = 0.2
 
     // public properties:
     p.shipFlame = undefined;
     p.shipBody = undefined;
 
-    p.timeout = undefined;
     p.thrust = undefined;
 
-    p.fuel = undefined;
+    p.fuel  = undefined;
+    p.cargo = undefined;
+    p.score = undefined;
 
     p.vX = undefined;
     p.vY = undefined;
@@ -33,6 +39,9 @@
     p.initialize = function (worlds, myWorld) {
         this.Container_initialize();
 
+        this.planets  = worlds
+        this.myPlanet = myWorld
+
         this.shipFlame = new createjs.Shape()
         this.shipBody  = new createjs.Shape()
         this.hud       = new createjs.Container()
@@ -41,10 +50,15 @@
         this.hud.textFuel  = new createjs.Text('speed',   null, '#bebebe')
         this.hud.textSpeed = new createjs.Text('speed',   null, '#bebebe')
         this.hud.textGrav  = new createjs.Text('gravity', null, '#bebebe')
+        this.hud.textCargo = new createjs.Text('cargo',   null, '#bebebe')
+        this.hud.textScore = new createjs.Text('score',   null, '#bebebe')
+
         this.hud.addChild(this.hud.border)
         this.hud.addChild(this.hud.textFuel )
         this.hud.addChild(this.hud.textSpeed)
         this.hud.addChild(this.hud.textGrav)
+        this.hud.addChild(this.hud.textCargo)
+        this.hud.addChild(this.hud.textScore)
         this.hud.textSpeed.x = 5
         this.hud.textSpeed.y = 5
         this.hud.textFuel.x = 5
@@ -52,26 +66,32 @@
         this.hud.textGrav.x = 5
         this.hud.textGrav.y = 25
 
+        this.hud.textCargo.x = 5
+        this.hud.textCargo.y = 35
+
+        this.hud.textScore.x = 5
+        this.hud.textScore.y = 45
+
         this.trajectory = new createjs.Shape()
 
         this.addChild(this.shipFlame);
         this.addChild(this.shipBody);
         this.addChild(this.trajectory);
-        this.planets  = worlds
-        this.myPlanet = myWorld
 
         this.makeShape();
-        this.timeout = 0;
         this.thrust = 0;
         this.vX = 0;
         this.vY = 0;
 
         this.x = 0
         this.y = 0
-        
+
+        this.cargo = 0
+        this.score = 0
+
         this.respawn()
 
-        this.fuel = 200;
+        this.fuel = Ship.MAX_FUEL;
     }
 
     // public methods:
@@ -112,9 +132,9 @@
         g.moveTo(-0.5,0)
         g.beginStroke("#FFFFFF");
         g.beginFill("rgba(30,30,30,60)");
-        g.lineTo(-0.5, 40.5)
-        g.lineTo(100,  40.5)
-        g.lineTo(130,  -0.5)
+        g.lineTo(-0.5, 60.5)
+        g.lineTo(100,  60.5)
+        g.lineTo(160,  -0.5)
         g.lineTo(-0.5, -0.5)
 
         g = this.trajectory.graphics
@@ -144,9 +164,11 @@
         }
 
 
-        this.hud.textSpeed.text = 'Speed: ' + Math.round(this.speed())
-        this.hud.textFuel.text  = 'Fuel: '  + Math.round(this.fuel)
+        this.hud.textSpeed.text = 'Speed: '   + Math.round(this.speed())
+        this.hud.textFuel.text  = 'Fuel: '    + Math.round(this.fuel)
         this.hud.textGrav.text  = 'Gravity: ' + Math.round(this.vectorLength(this.gravity())*10)
+        this.hud.textCargo.text = 'Cargo: '   + Math.round(this.cargo)
+        this.hud.textScore.text = 'Score: '   + Math.round(this.score)
 
     }
 
@@ -160,7 +182,7 @@
         this.x  = spawn.x
         this.y  = spawn.y
 
-        this.rotation            = spawn.r
+        this.rotation            =   spawn.r
         this.trajectory.rotation = - spawn.r
     }
 
@@ -300,16 +322,23 @@
         if (this.isCrashed() && !this.isPreview) {
             this.vX = 0
             this.vY = 0
+            this.cargo = 0
+            this.score = 0
             if (!this.timeDied) {
                 this.timeDied = new Date()
             }
             else if (new Date() - this.timeDied > Ship.REVIVAL_TIME) {
+                this.myPlanet.respawnShip()
                 return this.respawn()
             }
             else {
                 this.makeCrashedShape()
                 return
             }
+        }
+        if (!this.isPreview) {
+            this.refuel()
+            this.loadCargo()
         }
 
         this.makeShape()
@@ -325,7 +354,6 @@
 
         //with thrust flicker a flame every Ship.TOGGLE frames, attenuate thrust
         if (this.thrust > 0) {
-            this.timeout++;
             this.shipFlame.alpha = 1;
 
             this.fuel -= this.thrust
@@ -340,6 +368,37 @@
             this.thrust = 0;
         }
     }
+    p.refuel = function() {
+        if (this.distanceTo(this.myPlanet) < this.myPlanet.radius*3) {
+            // refuel
+            this.fuel = Math.min(this.fuel + Ship.REFUEL_SPEED, Ship.MAX_FUEL)
+
+            // unload cargo in the same step
+
+            this.dumpCargo()
+
+        }
+    }
+
+    p.dumpCargo = function() {
+        var cargoBefore = this.cargo
+        this.cargo = Math.max(this.cargo - Ship.LOADING_SPEED, 0)
+        this.score += cargoBefore - this.cargo
+
+        this.myPlanet.dumpCargo(cargoBefore - this.cargo)
+    }
+
+    p.loadCargo = function() {
+        for (var x = 0; x < this.planets.length; x++) {
+            if (this.planets[x] === this.myPlanet) {
+                // no loading at home planet
+                continue;
+            }
+            if (this.distanceTo(this.planets[x]) < this.planets[x].radius * 3) {
+                this.cargo = Math.min(this.cargo + Ship.LOADING_SPEED, Ship.MAX_CARGO)
+            }
+        }
+    }
 
     p.accelerate = function () {
         //increase push ammount for acceleration
@@ -352,9 +411,12 @@
             this.thrust = Ship.MAX_THRUST;
         }
 
+        var weight = (this.fuel / Ship.MAX_FUEL + this.cargo / Ship.MAX_CARGO) / 2
+        var drag = Ship.MAX_VELOCITY /  5 * weight
+
         //accelerate
-        this.vX += Math.sin(this.rotation * (Math.PI / -180)) * this.thrust;
-        this.vY += Math.cos(this.rotation * (Math.PI / -180)) * this.thrust;
+        this.vX += Math.sin(this.rotation * (Math.PI / -180)) * this.thrust * drag;
+        this.vY += Math.cos(this.rotation * (Math.PI / -180)) * this.thrust * drag;
 
         //cap max speeds
         this.vX = Math.min(Ship.MAX_VELOCITY, Math.max(-Ship.MAX_VELOCITY, this.vX));
