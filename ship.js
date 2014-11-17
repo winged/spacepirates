@@ -167,57 +167,61 @@
     p.preview = function() {
 
         return {
-            x                : this.x,
-            y                : this.y,
-            vX               : this.vX,
-            vY               : this.vY,
-            planets          : this.planets,
-            gravity          : this.gravity,
-            attractionTo     : this.attractionTo,
-            distanceTo       : this.distanceTo,
-            vectorLength     : this.vectorLength,
-            makeShape        : function(){},
-            makeCrashedShape : this.makeCrashedShape,
-            graphics         : this.trajectory.graphics,
-            shipFlame        : new createjs.Shape(),
-            shipBody         : new createjs.Shape(),
-            trajectory       : new createjs.Shape(),
-            tick             : this.tick,
-            isCrashed        : this.isCrashed,
-            isPreview        : true
+            x                   : this.x,
+            y                   : this.y,
+            vX                  : this.vX,
+            vY                  : this.vY,
+            planets             : this.planets,
+            gravity             : this.gravity,
+            attractionTo        : this.attractionTo,
+            distanceTo          : this.distanceTo,
+            vectorLength        : this.vectorLength,
+            makeShape           : function(){},
+            makeCrashedShape    : this.makeCrashedShape,
+            graphics            : this.trajectory.graphics,
+            shipFlame           : new createjs.Shape(),
+            shipBody            : new createjs.Shape(),
+            trajectory          : new createjs.Shape(),
+            tick                : this.tick,
+            isCrashed           : this.isCrashed,
+            isWithinBoundingBox : this.isWithinBoundingBox,
+            isPreview           : true
         }
     }
 
     p.isCrashed = function() {
+        // check crash into planets themelves
+        for (var x = 0; x < this.planets.length; x++) {
+            if (this.distanceTo(this.planets[x]) < this.planets[x].radius) {
+                return true;
+            }
+        }
+        return !this.isWithinBoundingBox()
+    }
+
+    p.isWithinBoundingBox = function() {
         // first, check crash into planets themelves
         // at the same time, check crash into bounding ellipsis
-        var sumDistance = 0
+        var sumDistance    = 0
         var planetDistance = 0
         var previousPlanet = null;
 
-        for (var p = 0; p < this.planets.length; p++) {
-            var distance = this.distanceTo(this.planets[p])
-            if (distance < 40) {
-                return true;
-            }
+        for (var i = 0; i < this.planets.length; i++) {
+            var distance = this.distanceTo(this.planets[i])
             if (previousPlanet) {
                 var dist = {
-                    x: previousPlanet.x - this.planets[p].x,
-                    y: previousPlanet.y - this.planets[p].y
+                    x: previousPlanet.x - this.planets[i].x,
+                    y: previousPlanet.y - this.planets[i].y
                 }
                 planetDistance += this.vectorLength(dist)
             }
-            previousPlanet = this.planets[p]
+            previousPlanet = this.planets[i]
 
             sumDistance += distance
         }
 
-        if (sumDistance > planetDistance * 1.6) {
-            return true;
-        }
-        return false;
+        return (sumDistance < planetDistance * 1.6)
     }
-
 
     p.gravity = function() {
         var sx = 0.0
