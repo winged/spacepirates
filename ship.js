@@ -273,15 +273,15 @@
     }
 
     p.makeCrashedShape = function() {
-        var fadeTime = 500
+        var fadeTime = 800
         var timeDead = (new Date()) - this.timeDied
-        var fade = Math.max(0, fadeTime - timeDead) / fadeTime
+        var fade = Math.pow(Math.max(0, fadeTime - timeDead) / fadeTime, 2)
 
         var g = this.shipBody.graphics
         g.clear()
         g.beginStroke(createjs.Graphics.getRGB(255,255,255, fade))
         g.beginFill(createjs.Graphics.getRGB(255,0xbc,0x23, fade))
-        g.drawPolyStar(0, 0, this.fuel / 30, 8, 0.5, 0)
+        g.drawPolyStar(0, 0, this.fuel / 6 - timeDead * 0.1, 8, 0.5, timeDead * 0.1)
 
         g = this.trajectory.graphics
         g.clear()
