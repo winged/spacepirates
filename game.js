@@ -10,14 +10,14 @@
 
     var background = new Background(width, height)
 
-    var worldBlue = new Planet('#2020de', width * .8, height/2)
-    var worldRed  = new Planet('#de2020', width * .2, height/2)
+    var worldBlue = new Planet('#2020de', width * 0.8, height/2)
+    var worldRed  = new Planet('#de2020', width * 0.2, height/2)
 
     stage.addChild(background)
     stage.addChild(worldRed)
     stage.addChild(worldBlue)
 
-    var ship = new Ship(350, 360, 10, 0, [worldRed, worldBlue])
+    var ship = new Ship([worldRed, worldBlue], worldRed)
     stage.addChild(ship)
 
     stage.addChild(ship.hud)

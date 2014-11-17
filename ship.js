@@ -1,8 +1,8 @@
 (function(window) {
     "use strict";
 
-    function Ship(startX, startY, vX, vY, worlds) {
-        this.initialize(startX, startY, vX, vY, worlds);
+    function Ship(worlds, myWorld) {
+        this.initialize(worlds, myWorld);
     }
 
     var p = Ship.prototype = new createjs.Container();
@@ -16,21 +16,21 @@
     Ship.ROTATION_SPEED      = 10;
 
     // public properties:
-    p.shipFlame;
-    p.shipBody;
+    p.shipFlame = undefined;
+    p.shipBody = undefined;
 
-    p.timeout;
-    p.thrust;
+    p.timeout = undefined;
+    p.thrust = undefined;
 
-    p.fuel;
+    p.fuel = undefined;
 
-    p.vX;
-    p.vY;
+    p.vX = undefined;
+    p.vY = undefined;
 
     // constructor:
     p.Container_initialize = p.initialize;	//unique to avoid overiding base class
 
-    p.initialize = function (startX, startY, vX, vY, worlds) {
+    p.initialize = function (worlds, myWorld) {
         this.Container_initialize();
 
         this.shipFlame = new createjs.Shape()
@@ -57,20 +57,21 @@
         this.addChild(this.shipFlame);
         this.addChild(this.shipBody);
         this.addChild(this.trajectory);
-        this.planets = worlds
+        this.planets  = worlds
+        this.myPlanet = myWorld
 
         this.makeShape();
         this.timeout = 0;
         this.thrust = 0;
-        this.vX = vX;
-        this.vY = vY;
+        this.vX = 0;
+        this.vY = 0;
 
+        this.x = 0
+        this.y = 0
+        
+        this.respawn()
 
-        this.x = startX
-        this.y = startY
-        //this.rotation = 90
-
-        this.fuel = 100;
+        this.fuel = 200;
     }
 
     // public methods:
@@ -122,9 +123,9 @@
         g.moveTo(0,0)
         var preview = this.preview()
 
-        var maxPreview = 100
+        var maxPreview = 40
 
-        for (var x = 1; x < maxPreview+10; x++) {
+        for (var x = 1; x < maxPreview; x++) {
             preview.rotation = 0
 
             preview.tick()
@@ -147,6 +148,20 @@
         this.hud.textFuel.text  = 'Fuel: '  + Math.round(this.fuel)
         this.hud.textGrav.text  = 'Gravity: ' + Math.round(this.vectorLength(this.gravity())*10)
 
+    }
+
+    p.respawn = function() {
+        var spawn = this.myPlanet.getSpawnPoint()
+        console.log("Ship: spawning at", spawn)
+
+        this.timeDied = undefined
+        this.vX = spawn.vx
+        this.vY = spawn.vy
+        this.x  = spawn.x
+        this.y  = spawn.y
+
+        this.rotation            = spawn.r
+        this.trajectory.rotation = - spawn.r
     }
 
     p.preview = function() {
@@ -174,10 +189,31 @@
     }
 
     p.isCrashed = function() {
+        // first, check crash into planets themelves
+        // at the same time, check crash into bounding ellipsis
+        var sumDistance = 0
+        var planetDistance = 0
+        var previousPlanet = null;
+
         for (var p = 0; p < this.planets.length; p++) {
-            if (this.distanceTo(this.planets[p]) < 40) {
+            var distance = this.distanceTo(this.planets[p])
+            if (distance < 40) {
                 return true;
             }
+            if (previousPlanet) {
+                var dist = {
+                    x: previousPlanet.x - this.planets[p].x,
+                    y: previousPlanet.y - this.planets[p].y
+                }
+                planetDistance += this.vectorLength(dist)
+            }
+            previousPlanet = this.planets[p]
+
+            sumDistance += distance
+        }
+
+        if (sumDistance > planetDistance * 1.6) {
+            return true;
         }
         return false;
     }
@@ -197,9 +233,7 @@
 
     p.vectorLength = function(v) {
         return Math.sqrt(
-            Math.pow(v.x ,2)
-            +
-            Math.pow(v.y, 2)
+            Math.pow(v.x ,2) + Math.pow(v.y, 2)
         )
     }
 
@@ -250,22 +284,18 @@
         this.vY += gravity.y
 
         if (this.isCrashed() && !this.isPreview) {
+            this.vX = 0
+            this.vY = 0
             if (!this.timeDied) {
                 this.timeDied = new Date()
             }
-            else {
-                if (new Date() - this.timeDied > Ship.REVIVAL_TIME) {
-                    this.timeDied = undefined
-                    this.vX = 0
-                    this.vY = 20
-                    this.x  = 500
-                    this.y  = 300
-                }
+            else if (new Date() - this.timeDied > Ship.REVIVAL_TIME) {
+                return this.respawn()
             }
-            this.vX = 0
-            this.vY = 0
-            this.makeCrashedShape()
-            return
+            else {
+                this.makeCrashedShape()
+                return
+            }
         }
 
         this.makeShape()
@@ -276,6 +306,7 @@
         // running out of fuel
         if (this.fuel <= 0) {
             this.thrust = 0
+            this.fuel   = 0
         }
 
         //with thrust flicker a flame every Ship.TOGGLE frames, attenuate thrust
