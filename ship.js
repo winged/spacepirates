@@ -1,8 +1,8 @@
 (function(window) {
     "use strict";
 
-    function Ship(worlds, myWorld) {
-        this.initialize(worlds, myWorld);
+    function Ship(planets, myPlanet) {
+        this.initialize(planets, myPlanet);
     }
 
     var p = Ship.prototype = new createjs.Container();
@@ -20,27 +20,14 @@
     Ship.MAX_CARGO           = 100
     Ship.LOADING_SPEED       = 0.2
 
-    // public properties:
-    p.shipFlame = undefined;
-    p.shipBody = undefined;
-
-    p.thrust = undefined;
-
-    p.fuel  = undefined;
-    p.cargo = undefined;
-    p.score = undefined;
-
-    p.vX = undefined;
-    p.vY = undefined;
-
     // constructor:
     p.Container_initialize = p.initialize; //unique to avoid overiding base class
 
-    p.initialize = function (worlds, myWorld) {
+    p.initialize = function (planets, myPlanet) {
         this.Container_initialize();
 
-        this.planets  = worlds
-        this.myPlanet = myWorld
+        this.planets  = planets
+        this.myPlanet = myPlanet
 
         this.shipFlame = new createjs.Shape()
         this.shipBody  = new createjs.Shape()
@@ -160,7 +147,6 @@
             var newalpha = (maxPreview - x) / maxPreview
             g.moveTo(preview.x - this.x, preview.y - this.y)
             g.beginStroke(createjs.Graphics.getRGB(0,255,255, newalpha));
-            //g.lineTo(preview.x, preview.y)
         }
 
 

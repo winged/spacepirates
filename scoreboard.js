@@ -2,15 +2,16 @@
     "use strict";
 
     window.Scoreboard = function Scoreboard(color) {
+        console.log(this)
+        Scoreboard.super_.call(this)
         this.initialize(color)
     }
 
-    var p = Scoreboard.prototype = new createjs.Container()
-
-    p.Container_initialize = p.initialize
+    inherits(Scoreboard, createjs.Container)
+    var p = Scoreboard.prototype
 
     p.initialize = function(color) {
-        p.Container_initialize()
+        Scoreboard.super_.prototype.initialize.call(this)
 
         this.border      = new createjs.Shape()
         this.textScore   = new createjs.Text('score',     'bold 15px Arial', color)
